@@ -2,7 +2,7 @@
 
 set -eo pipefail
 
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 RUST_FILES="$($(hg status -man 2>/dev/null || git diff --name-only --staged) | egrep "\.rs$")"
 if [ -z $RUST_FILES ]; then
 	echo "Skipping rustfmt"
