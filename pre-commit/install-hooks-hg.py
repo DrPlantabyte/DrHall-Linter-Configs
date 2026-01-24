@@ -32,7 +32,7 @@ if platform.system() == "Windows":
 	prefix = "powershell.exe -File "
 else:
 	suffix = ".sh"
-	prefix = ""
+	prefix = "bash "
 
 err("WIP")
 exit(1)
