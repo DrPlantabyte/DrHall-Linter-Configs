@@ -24,8 +24,14 @@ else:
 hook_matches = list(re.finditer(r'^\w*\[\w*hooks\w*\]', hgrc_content))
 if len(hook_matches) > 0:
 	insert_index = hook_matches[-1].end(0)
+	# move to index after next newline
+	insert_index = hgrc_content.find('\n', insert_index)
+	if insert_index == -1:
+		# there is no new-line after [hooks]
+		hgrc_content += '\n'
+		insert_index = len(hgrc_content)
 else:
-	hgrc_content = hgrc_content + "\n[hooks]"
+	hgrc_content = hgrc_content + "\n[hooks]\n"
 	insert_index = len(hgrc_content)
 
 # figure out which versions of scripts to use
@@ -34,20 +40,23 @@ if platform.system() == "Windows":
 	prefix = "powershell.exe -File "
 else:
 	suffix = ".sh"
-	prefix = "sh "
+	prefix = "bash "
 
 # find pre-commit hook scripts and add them
 err(f"Installing pre-commit hook scripts to '{str(hgrc_file)}'...")
+changed = False
 for p in this_dir.rglob('*'):
 	if p.name.endswith(suffix):
 		hook_entry = f'{p.stem} = {prefix}{str(p.relative_to(root_dir))}'
 		if hook_entry not in hgrc_content:
 			err(f"installing hook '{hook_entry}'")
-			hgrc_content = hgrc_content[:insert_index]+'\n'+hook_entry+hgrc_content[insert_index:]
+			hgrc_content = hgrc_content[:insert_index]+hook_entry+'\n'+hgrc_content[insert_index:]
 			insert_index += 1+len(hook_entry)
+			changed = True
 		else:
 			err(f"hook '{hook_entry}' already installed")
-hgrc_file.write_text(hgrc_content)
+if changed:
+	hgrc_file.write_text(hgrc_content)
 err("...Done")
 exit(0)
 
