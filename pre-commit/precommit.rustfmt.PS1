@@ -1,13 +1,12 @@
 #!/usr/bin/env pwsh
 
-#cd "$PSScriptRoot/.."
-pwd
+cd "$PSScriptRoot/.."
 if (Test-Path -Path ".hg") {
 	$RUST_FILES=$(hg status -man | Select-String -Pattern ".rs$")
 } elseif (Test-Path -Path ".git") {
 	$RUST_FILES=$(git diff --name-only --staged | Select-String -Pattern ".rs$")
 } else {
-	echo "not a mercurial or git repo. Aborting."
+	echo "Not a Mercurial nor Git repo. Aborting."
 	exit 1
 }
 
