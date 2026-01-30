@@ -2,9 +2,8 @@
 # NOTE: runs in repo root
 
 cd "$(dirname "$0")/.."
-echo "collecting rust files"
+
 RUST_FILES="$(echo $(hg status -man 2>/dev/null || git diff --name-only --staged) | egrep "\.rs$")"
-echo "$?    rust files: $RUST_FILES"
 if [ -z $RUST_FILES ]; then
 	echo "Skipping rustfmt"
 else
