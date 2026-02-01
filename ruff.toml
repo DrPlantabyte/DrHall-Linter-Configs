@@ -9,7 +9,11 @@ target-version = "py312"
 # See https://docs.astral.sh/ruff/rules/ for list of rule codes
 # select codes are prefixes, ie "E4" means all E4xx rules
 select = [
-"E", "F", "A", "DTZ"]
+	"S5", "B", "C4", "E101", "E4", "E7", "F", "A", "DTZ", "EXE", "FIX003",
+	"INP", "PIE7", "PT", "TID252", "ARG", "PTH", "I", "NPY", "PD003", "PD004",
+	"PD007", "PD008", "PD009", "PD011", "PD012", "N8", "D1", "D201", "D211",
+	"D3", "D419"
+]
 ignore = []
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
