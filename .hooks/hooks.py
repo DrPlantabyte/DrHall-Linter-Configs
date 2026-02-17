@@ -3,7 +3,6 @@
 
 import argparse
 import enum
-import os
 import platform
 import re
 import shlex
@@ -26,7 +25,6 @@ HOOKS = {'precommit': lambda files: run_precommit_hooks(files)}
 
 def main(argsv: list[str] | None = None):
 	"""Run this script as a CLI app via ArgParse"""
-	print(os.curdir)  # TODO: remove
 	# CLI
 	arg_parser = argparse.ArgumentParser(description='Install or run repository hooks')
 	arg_parser.add_argument(
@@ -214,15 +212,15 @@ def install_hg_hooks(os_type: OsType):
 	"""install hooks for hg"""
 	hg_dir = hg_repo_root()
 	# read the hgrc file, if it exists
-	hgrc_file = hg_dir / 'hgrc'
-	hooks_dir = hg_dir / '.hghooks'
-	precommit_script_path = hooks_dir / '.hooks.py'
+	hgrc_file = hg_dir / '.hg' / 'hgrc'
+	hooks_dir = hg_dir / '.hooks'
+	precommit_script_path = hooks_dir / 'hooks.py'
 	if hgrc_file.exists():
 		hgrc_content = hgrc_file.read_text()
 	else:
 		hgrc_content = ''
 	# find the [hooks] section, if it exists
-	hook_matches = list(re.finditer(r'^\w*\[\w*hooks\w*\]', hgrc_content))
+	hook_matches = list(re.finditer(r'^\s*\[\s*hooks\s*\]', hgrc_content))
 	if len(hook_matches) > 0:
 		insert_index = hook_matches[-1].end(0)
 	else:
@@ -230,11 +228,13 @@ def install_hg_hooks(os_type: OsType):
 		insert_index = len(hgrc_content)
 	# figure out which command to use
 	if os_type == OsType.WINDOWS:
-		command = f'python.exe {str(precommit_script_path.relative_to(hg_dir))}'
+		command = f'python.exe {str(precommit_script_path.relative_to(hg_dir))} --modified --hook=precommit'
 	else:
-		command = f'python3 {str(precommit_script_path.relative_to(hg_dir))}'
+		command = (
+			f'python3 {str(precommit_script_path.relative_to(hg_dir))} --modified --hook=precommit'
+		)
 	# add the hook entry, if it is not already there
-	hook_entry = f'\n.hooks.format-and-lint = {command}'
+	hook_entry = f'\nprecommit.format-and-lint = {command}'
 	changed = False
 	if hook_entry not in hgrc_content:
 		err(f"installing hook '{hook_entry}'")
