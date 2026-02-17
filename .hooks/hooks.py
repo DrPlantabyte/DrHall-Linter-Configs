@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
+"""script for installing and running hg/git hooks"""
+
 import argparse
 import enum
+import os
 import platform
 import re
 import shlex
@@ -11,6 +14,8 @@ from typing import Iterable
 
 
 class OsType(enum.Enum):
+	"""Enum of OSes"""
+
 	WINDOWS = 'windows'
 	MAC = 'mac'
 	LINUX = 'linux'
@@ -19,8 +24,9 @@ class OsType(enum.Enum):
 HOOKS = {'precommit': lambda files: run_precommit_hooks(files)}
 
 
-def main():
+def main(argsv: list[str] | None = None):
 	"""Run this script as a CLI app via ArgParse"""
+	print(os.curdir)  # TODO: remove
 	# CLI
 	arg_parser = argparse.ArgumentParser(description='Install or run repository hooks')
 	arg_parser.add_argument(
@@ -37,7 +43,7 @@ def main():
 		'--hook', '-x', choices=HOOKS.keys(), default=None, type=str, help='which hook to run'
 	)
 	arg_parser.add_argument('files', type=Path, nargs='*')
-	args = arg_parser.parse_args()
+	args = arg_parser.parse_args(argsv)
 	# identify the repo
 	os_type = get_os_type()
 	hg_repo = is_hg_repo()
@@ -67,7 +73,7 @@ def main():
 		print_list = '\n\t'.join([str(p) for p in files])
 		err(f'Running {args.hook} hooks on files...\n\t{print_list}')
 		hook_fn = HOOKS[args.hook]
-		success = hook_fn(files)
+		success = hook_fn(expand_dirs(files))
 		if success:
 			err('...SUCCESS!')
 		else:
@@ -79,7 +85,19 @@ def main():
 
 
 def err(*args, **wkargs):
+	"""print to stderr"""
 	print(*args, **wkargs, file=sys.stderr)
+
+
+def expand_dirs(files: Iterable[Path]) -> set[Path]:
+	"""expand directories in file list to files, returning a flattened set of files"""
+	output = set()
+	for f in files:
+		if f.is_dir():
+			output.update(f.rglob('*'))
+		else:
+			output.add(f)
+	return output
 
 
 def get_os_type() -> OsType:
@@ -94,6 +112,7 @@ def get_os_type() -> OsType:
 
 
 def is_hg_repo() -> bool:
+	"""returns True if CWD is in a hg repo, False otherwise"""
 	try:
 		_ = hg_repo_root()
 		return True
@@ -102,6 +121,7 @@ def is_hg_repo() -> bool:
 
 
 def is_git_repo() -> bool:
+	"""returns True if CWD is in a git repo, False otherwise"""
 	try:
 		_ = git_repo_root()
 		return True
@@ -118,14 +138,15 @@ def run_precommit_hooks(files: Iterable[Path]) -> bool:
 	]
 	hook_results: dict[str, bool] = {}
 	for hook_name, command_str, on_fail_cmd_str, regex_filter in hooks_commands_filters:
-		file_list = list([p for p in files if re.match(regex_filter, p.name)])
+		file_list = [p for p in files if re.match(regex_filter, p.name)]
 		err(f'Running {hook_name} on {len(file_list)} files...')
 		if len(file_list) == 0:
 			err('\t...skipped')
 		else:
+			err(f'\t{command_str} @FILES')
 			cmd = shlex.split(command_str)
 			result = subprocess.run(
-				cmd + [str(p) for p in files],
+				cmd + [str(p) for p in file_list],
 				stdout=sys.stderr,
 				stderr=sys.stderr,
 				text=True,
@@ -136,13 +157,13 @@ def run_precommit_hooks(files: Iterable[Path]) -> bool:
 			if not success and on_fail_cmd_str is not None:
 				cmd = shlex.split(on_fail_cmd_str)
 				_ = subprocess.run(
-					cmd + [str(p) for p in files],
+					cmd + [str(p) for p in file_list],
 					stdout=sys.stderr,
 					stderr=sys.stderr,
 					text=True,
 					check=False,
 				)
-	for hook_name, _, _ in hooks_commands_filters:
+	for hook_name, _, _, _ in hooks_commands_filters:
 		if hook_name not in hook_results:
 			result_display = 'SKIP'
 		else:
@@ -162,7 +183,7 @@ def hg_repo_root(cwd: Path | None = None) -> Path:
 		['hg', 'root'],
 		cwd=str(cwd) if cwd else None,
 		stdout=subprocess.PIPE,
-		stderr=sys.stderr,
+		stderr=subprocess.PIPE,
 		text=True,
 		check=True,
 	)
@@ -181,7 +202,7 @@ def git_repo_root(cwd: Path | None = None) -> Path:
 		['git', 'rev-parse', '--show-toplevel'],
 		cwd=str(cwd) if cwd else None,
 		stdout=subprocess.PIPE,
-		stderr=sys.stderr,
+		stderr=subprocess.PIPE,
 		text=True,
 		check=True,
 	)
@@ -190,6 +211,7 @@ def git_repo_root(cwd: Path | None = None) -> Path:
 
 
 def install_hg_hooks(os_type: OsType):
+	"""install hooks for hg"""
 	hg_dir = hg_repo_root()
 	# read the hgrc file, if it exists
 	hgrc_file = hg_dir / 'hgrc'
@@ -229,6 +251,7 @@ def install_hg_hooks(os_type: OsType):
 
 
 def install_git_hooks(os_type: OsType):
+	"""install hooks for git"""
 	# Frickin' Git! Your hooks support on Windows is so dodgy!
 	# hook files are required to start with a #! to determine which shell to use, but cannot find windows shells
 	# so on windows, one must use #!/bin/sh to bypass its attempt to search for a shell
@@ -255,6 +278,7 @@ python3 .hooks/hooks.py --modified --hook=precommit
 
 
 def hg_modified_files(cwd: Path | None = None) -> list[Path]:
+	"""returns a list of added and modified files tracked by hg"""
 	result = subprocess.run(
 		['hg', 'status', '-am'],
 		cwd=str(cwd) if cwd else None,
@@ -267,6 +291,7 @@ def hg_modified_files(cwd: Path | None = None) -> list[Path]:
 
 
 def git_modified_files(cwd: Path | None = None) -> list[Path]:
+	"""returns a list of added and modified files tracked by git"""
 	result = subprocess.run(
 		['git', 'diff', '--name-only', '--diff-filter=AM', 'HEAD'],
 		cwd=str(cwd) if cwd else None,
