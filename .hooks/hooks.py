@@ -248,6 +248,9 @@ def install_hg_hooks(os_type: OsType):
 		err(f'[hooks]\n{hook_entry}')
 		err('```')
 		hgrc_file.write_text(hgrc_content)
+	# set execute bit
+	if os_type != OsType.WINDOWS:
+		precommit_script_path.chmod(mode=0o755)
 
 
 def install_git_hooks(os_type: OsType):
@@ -260,7 +263,9 @@ def install_git_hooks(os_type: OsType):
 	# Therefore the only plausible thing to do is make the hook file a one-line command that works in any and all
 	# Windows and posix-wrapper shells (eg cygwin), eg `python.exe actual-hooks-as-python-script`
 	git_dir = git_repo_root()
+	repo_hooks_dir = git_dir / '.hooks'
 	git_hook_dir = git_dir / '.git' / 'hooks'
+	precommit_script_path = repo_hooks_dir / 'hooks.py'
 	precommit_hook_path = git_hook_dir / 'pre-commit'
 	if os_type == OsType.WINDOWS:
 		git_precommit_content = """#!/bin/sh
@@ -275,6 +280,10 @@ python3 .hooks/hooks.py --modified --hook=precommit
 	err(git_precommit_content)
 	err('```')
 	precommit_hook_path.write_text(git_precommit_content, encoding='utf-8')
+	# set execute bit
+	if os_type != OsType.WINDOWS:
+		precommit_hook_path.chmod(mode=0o755)
+		precommit_script_path.chmod(mode=0o755)
 
 
 def hg_modified_files(cwd: Path | None = None) -> list[Path]:
