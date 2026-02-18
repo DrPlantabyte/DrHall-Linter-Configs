@@ -1,0 +1,33 @@
+# Same as Black.
+line-length = 100
+indent-width = 4
+
+# Assume Python 3.12
+target-version = "py312"
+
+[lint]
+# See https://docs.astral.sh/ruff/rules/ for list of rule codes
+# select codes are prefixes, ie "E4" means all E4xx rules
+select = [
+	"S5", "B", "C4", "E101", "E4", "E7", "F", "A", "DTZ", "EXE", "FIX003",
+	"INP", "PIE7", "PT", "TID252", "ARG", "PTH", "I", "NPY", "PD003", "PD004",
+	"PD007", "PD008", "PD009", "PD011", "PD012", "N8", "D1", "D201", "D211",
+	"D3", "D419"
+]
+ignore = []
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[format]
+quote-style = "single"
+indent-style = "tab"
+skip-magic-trailing-comma = false
+# require '\n' line endings
+line-ending = "lf"
+docstring-code-format = false
+docstring-code-line-length = "dynamic"
