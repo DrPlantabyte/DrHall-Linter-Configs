@@ -1,6 +1,6 @@
 edition = "2024"
 style_edition = "2024"
-max_width = 100
+max_width = 120
 use_small_heuristics = "Max"
 # NOTE: use_small_heuristics controls the following entries as a function of `max_width`:
 #     fn_call_width, attr_fn_like_width, struct_lit_width, struct_variant_width, array_width,

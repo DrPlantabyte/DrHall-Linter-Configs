@@ -27,9 +27,7 @@ def main(argsv: list[str] | None = None):
 	"""Run this script as a CLI app via ArgParse"""
 	# CLI
 	arg_parser = argparse.ArgumentParser(description='Install or run repository hooks')
-	arg_parser.add_argument(
-		'--install', action='store_true', help='install hooks into this Hg/Git repo'
-	)
+	arg_parser.add_argument('--install', action='store_true', help='install hooks into this Hg/Git repo')
 	arg_parser.add_argument('--all', '-a', action='store_true', help='run hooks on all files')
 	arg_parser.add_argument(
 		'--modified',
@@ -37,9 +35,7 @@ def main(argsv: list[str] | None = None):
 		action='store_true',
 		help='run hooks on added and modified files (as per `hg status -ma` or `git diff --name-only --diff-filter=AM HEAD`)',
 	)
-	arg_parser.add_argument(
-		'--hook', '-x', choices=HOOKS.keys(), default=None, type=str, help='which hook to run'
-	)
+	arg_parser.add_argument('--hook', '-x', choices=HOOKS.keys(), default=None, type=str, help='which hook to run')
 	arg_parser.add_argument('files', type=Path, nargs='*')
 	args = arg_parser.parse_args(argsv)
 	# identify the repo
@@ -130,9 +126,10 @@ def is_git_repo() -> bool:
 def run_precommit_hooks(files: Iterable[Path]) -> bool:
 	"""Runs all of the pre-commit hooks on the provided files and returns True if all passed, otherwise False"""
 	hooks_commands_filters = [
-		('ruff format', 'uv tool run ruff format --exit-non-zero-on-format', None, r'^.*\.py$'),
-		('ruff check', 'uv tool run ruff check --fix --exit-non-zero-on-fix', None, r'^.*\.py$'),
-		('rust format', 'rustfmt --check', 'rustfmt', r'^.*\.rs$'),
+		('ruff format (Python)', 'uv tool run ruff format --exit-non-zero-on-format', None, r'^.*\.py$'),
+		('ruff check (Python)', 'uv tool run ruff check --fix --exit-non-zero-on-fix', None, r'^.*\.py$'),
+		('rust format (Rust)', 'rustfmt --check', 'rustfmt', r'^.*\.rs$'),
+		('.editorconfig lint (Java)', 'npx eclint check', 'npx eclint fix', r'^.*\.java$'),
 	]
 	hook_results: dict[str, bool] = {}
 	for hook_name, command_str, on_fail_cmd_str, regex_filter in hooks_commands_filters:
@@ -230,9 +227,7 @@ def install_hg_hooks(os_type: OsType):
 	if os_type == OsType.WINDOWS:
 		command = f'python.exe {str(precommit_script_path.relative_to(hg_dir))} --modified --hook=precommit'
 	else:
-		command = (
-			f'python3 {str(precommit_script_path.relative_to(hg_dir))} --modified --hook=precommit'
-		)
+		command = f'python3 {str(precommit_script_path.relative_to(hg_dir))} --modified --hook=precommit'
 	# add the hook entry, if it is not already there
 	hook_entry = f'\nprecommit.format-and-lint = {command}'
 	changed = False
