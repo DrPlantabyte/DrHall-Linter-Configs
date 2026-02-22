@@ -20,16 +20,14 @@ class OsType(enum.Enum):
 	LINUX = 'linux'
 
 
-HOOKS = {'precommit': lambda files: run_precommit_hooks(files)}
+HOOKS = {'precommit': lambda os_type, files: run_precommit_hooks(os_type, files)}
 
 
 def main(argsv: list[str] | None = None):
 	"""Run this script as a CLI app via ArgParse"""
 	# CLI
 	arg_parser = argparse.ArgumentParser(description='Install or run repository hooks')
-	arg_parser.add_argument(
-		'--install', action='store_true', help='install hooks into this Hg/Git repo'
-	)
+	arg_parser.add_argument('--install', action='store_true', help='install hooks into this Hg/Git repo')
 	arg_parser.add_argument('--all', '-a', action='store_true', help='run hooks on all files')
 	arg_parser.add_argument(
 		'--modified',
@@ -37,9 +35,7 @@ def main(argsv: list[str] | None = None):
 		action='store_true',
 		help='run hooks on added and modified files (as per `hg status -ma` or `git diff --name-only --diff-filter=AM HEAD`)',
 	)
-	arg_parser.add_argument(
-		'--hook', '-x', choices=HOOKS.keys(), default=None, type=str, help='which hook to run'
-	)
+	arg_parser.add_argument('--hook', '-x', choices=HOOKS.keys(), default=None, type=str, help='which hook to run')
 	arg_parser.add_argument('files', type=Path, nargs='*')
 	args = arg_parser.parse_args(argsv)
 	# identify the repo
@@ -71,7 +67,7 @@ def main(argsv: list[str] | None = None):
 		print_list = '\n\t'.join([str(p) for p in files])
 		err(f'Running {args.hook} hooks on files...\n\t{print_list}')
 		hook_fn = HOOKS[args.hook]
-		success = hook_fn(expand_dirs(files))
+		success = hook_fn(os_type, expand_dirs(files))
 		if success:
 			err('...SUCCESS!')
 		else:
@@ -127,22 +123,40 @@ def is_git_repo() -> bool:
 		return False
 
 
-def run_precommit_hooks(files: Iterable[Path]) -> bool:
+def run_precommit_hooks(os_type: OsType, files: Iterable[Path]) -> bool:
 	"""Runs all of the pre-commit hooks on the provided files and returns True if all passed, otherwise False"""
+	shell_prefix = (
+		['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command'] if os_type == OsType.WINDOWS else []
+	)
 	hooks_commands_filters = [
-		('ruff format', 'uv tool run ruff format --exit-non-zero-on-format', None, r'^.*\.py$'),
-		('ruff check', 'uv tool run ruff check --fix --exit-non-zero-on-fix', None, r'^.*\.py$'),
-		('rust format', 'rustfmt --check', 'rustfmt', r'^.*\.rs$'),
+		(
+			'ruff format (Python)',
+			['uv', 'tool', 'run', 'ruff', 'format', '--exit-non-zero-on-format'],
+			None,
+			r'^.*\.py$',
+		),
+		(
+			'ruff check (Python)',
+			['uv', 'tool', 'run', 'ruff', 'check', '--fix', '--exit-non-zero-on-fix'],
+			None,
+			r'^.*\.py$',
+		),
+		('rust format (Rust)', ['rustfmt', '--check'], ['rustfmt'], r'^.*\.rs$'),
+		(
+			'.editorconfig lint (Java)',
+			shell_prefix + ['eclint', 'check'],
+			shell_prefix + ['eclint', 'fix'],
+			r'^.*\.java$',
+		),
 	]
 	hook_results: dict[str, bool] = {}
-	for hook_name, command_str, on_fail_cmd_str, regex_filter in hooks_commands_filters:
+	for hook_name, cmd, on_fail_cmd, regex_filter in hooks_commands_filters:
 		file_list = [p for p in files if re.match(regex_filter, p.name)]
 		err(f'Running {hook_name} on {len(file_list)} files...')
 		if len(file_list) == 0:
 			err('\t...skipped')
 		else:
-			err(f'\t{command_str} @FILES')
-			cmd = shlex.split(command_str)
+			err(f'\t{shlex.join(cmd)} @FILES')
 			result = subprocess.run(
 				cmd + [str(p) for p in file_list],
 				stdout=sys.stderr,
@@ -152,10 +166,10 @@ def run_precommit_hooks(files: Iterable[Path]) -> bool:
 			)
 			success = result.returncode == 0
 			hook_results[hook_name] = success
-			if not success and on_fail_cmd_str is not None:
-				cmd = shlex.split(on_fail_cmd_str)
+			if not success and on_fail_cmd is not None:
+				err(f'\t{shlex.join(on_fail_cmd)} @FILES')
 				_ = subprocess.run(
-					cmd + [str(p) for p in file_list],
+					on_fail_cmd + [str(p) for p in file_list],
 					stdout=sys.stderr,
 					stderr=sys.stderr,
 					text=True,
@@ -230,9 +244,7 @@ def install_hg_hooks(os_type: OsType):
 	if os_type == OsType.WINDOWS:
 		command = f'python.exe {str(precommit_script_path.relative_to(hg_dir))} --modified --hook=precommit'
 	else:
-		command = (
-			f'python3 {str(precommit_script_path.relative_to(hg_dir))} --modified --hook=precommit'
-		)
+		command = f'python3 {str(precommit_script_path.relative_to(hg_dir))} --modified --hook=precommit'
 	# add the hook entry, if it is not already there
 	hook_entry = f'\nprecommit.format-and-lint = {command}'
 	changed = False
